@@ -915,7 +915,7 @@ const [form, setForm] = useState<FormData>({
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Set to true to enable real photoGen API calls
-  const PHOTO_GEN_ENABLED = false;
+  const PHOTO_GEN_ENABLED = true;
 
   async function toPhotoUpload(src: string): Promise<{ blob: Blob; filename: string }> {
     if (src.startsWith('data:')) {
