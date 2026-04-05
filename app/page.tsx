@@ -10,6 +10,7 @@ interface FormData {
   age: string;
   yearsSmoked: string;
   cigarettesPerDay: string;
+  pricePerPack: string;
 }
 
 interface YearData {
@@ -20,10 +21,56 @@ interface YearData {
   co2Kg: number;
   cigarettesSmoked: number;
   waterUsedL: number;
-  moneySpent: number;
+  kgramsLittered: number;
   milestone: string;
   milestoneDetail: string;
   accentColor: string;
+}
+
+
+function formatLiters(value: number) {
+  if (value >= 1000) {
+    return `${Math.round(value / 1000)} kL`;
+  }
+  return `${Math.round(value)} L`;
+}
+
+function getMoneyComparison(amount: number) {
+  if (amount >= 300000) return 'This money could have gone toward a house or major investment';
+  if (amount >= 100000) return 'This money could have covered a large down payment or long-term savings';
+  if (amount >= 50000) return 'This money could have funded years of rent or multiple international trips';
+  if (amount >= 25000) return 'This money could have bought a reliable car or paid for education';
+  if (amount >= 10000) return 'This money could have funded travel, a laptop, or emergency savings';
+  if (amount >= 5000) return 'This money could have bought a high-end laptop, furniture, or a vacation';
+  if (amount >= 2000) return 'This money could have covered a phone, bills, or several months of groceries';
+  if (amount >= 500) return 'This money could have paid for essentials, clothes, or small trips';
+  return 'Even small daily costs quietly add up over time';
+}
+
+function formatKg(value:number) {
+  if (value < 1){ 
+    return `${Math.round(value * 1000)} g`;
+  }
+  return `${value.toFixed(2)} kg`;
+}
+
+function formatMoney(value: number) {
+  return `$${Math.round(value).toLocaleString()}`;
+}
+
+function formatLifeLost(minutes: number) {
+  const days = minutes / (60 * 24);
+  const years = days / 365;
+
+  if (years >= 1) {
+    return `${years.toFixed(1)} yrs`;
+  }
+  if (days >= 1) {
+    return `${Math.round(days)} days`;
+  }
+
+  const hours = minutes / 60;
+  return `${Math.round(hours)} hrs`;
 }
 
 // Neutral grey → deep red as year increases
@@ -40,10 +87,10 @@ function lerpColor(a: string, b: string, t: number): string {
 
 function accentForYear(year: number): string {
   const stops: [number, string][] = [
-    [0,  '#71717a'], // zinc-500 — neutral
-    [8,  '#f97316'], // orange
-    [18, '#ef4444'], // red
-    [30, '#7f1d1d'], // dark red
+    [0,  '#71717a'],
+    [8,  '#f97316'],
+    [18, '#ef4444'],
+    [30, '#7f1d1d'],
   ];
   for (let i = 0; i < stops.length - 1; i++) {
     const [y0, c0] = stops[i];
@@ -54,14 +101,14 @@ function accentForYear(year: number): string {
 }
 
 function getMilestone(year: number): { milestone: string; detail: string } {
-  if (year === 0)  return { milestone: 'Today',                   detail: 'This is where you are now. Every year on this line is another year of continued damage.' };
+  if (year === 0)  return { milestone: 'Today',                     detail: 'This is where you are now. Every year on this line is another year of continued damage.' };
   if (year <= 2)   return { milestone: 'Early Damage Accumulating', detail: 'Lung cilia remain suppressed. Carbon monoxide binding to red blood cells. Elevated cardiovascular strain.' };
-  if (year <= 5)   return { milestone: 'Cardiovascular Strain',   detail: 'Blood vessel walls thickening. Reduced circulation. Resting heart rate and blood pressure elevated.' };
-  if (year <= 8)   return { milestone: 'Lung Function Declining', detail: 'FEV1 lung capacity measurably reduced. Chronic cough common. Increased respiratory infections.' };
-  if (year <= 12)  return { milestone: 'Compounding Health Debt', detail: 'Pack-year count in dangerous territory. Cancer risk rising. Heart disease risk significantly elevated.' };
-  if (year <= 16)  return { milestone: 'Serious Health Risk',     detail: 'Lung cancer risk multiplied. COPD likelihood high. Peripheral vascular disease a real concern.' };
-  if (year <= 20)  return { milestone: 'Severe Long-term Damage', detail: 'Major organ damage compounding. Life expectancy impact now measured in years, not months.' };
-  if (year <= 25)  return { milestone: 'Critical Stage',          detail: 'Irreversible damage to airways, arteries, and lung tissue. Quality of life significantly impacted.' };
+  if (year <= 5)   return { milestone: 'Cardiovascular Strain',     detail: 'Blood vessel walls thickening. Reduced circulation. Resting heart rate and blood pressure elevated.' };
+  if (year <= 8)   return { milestone: 'Lung Function Declining',   detail: 'FEV1 lung capacity measurably reduced. Chronic cough common. Increased respiratory infections.' };
+  if (year <= 12)  return { milestone: 'Compounding Health Debt',   detail: 'Pack-year count in dangerous territory. Cancer risk rising. Heart disease risk significantly elevated.' };
+  if (year <= 16)  return { milestone: 'Serious Health Risk',       detail: 'Lung cancer risk multiplied. COPD likelihood high. Peripheral vascular disease a real concern.' };
+  if (year <= 20)  return { milestone: 'Severe Long-term Damage',   detail: 'Major organ damage compounding. Life expectancy impact now measured in years, not months.' };
+  if (year <= 25)  return { milestone: 'Critical Stage',            detail: 'Irreversible damage to airways, arteries, and lung tissue. Quality of life significantly impacted.' };
   return { milestone: 'Maximum Risk Zone', detail: `${year} more years of smoking. The cumulative toll is severe. It is still not too late to stop.` };
 }
 
@@ -72,17 +119,16 @@ function calculateForYear(form: FormData, year: number): YearData {
 
   const CO2_PER_CIG_G   = 14;   // g CO2e per cigarette (full lifecycle)
   const WATER_PER_CIG_L = 3.7;  // litres per cigarette
-  const PACK_PRICE      = 14;   // $ per pack
+  const WEIGHT_PER_CIG_BUTT = 0.0003; //kg per cigarette butt
+  const PERCENTAGE_LITTERED = 0.75; // 75% of butts are littered
+
 
   const annualCigs = cpd * 365;
-  const totalPackYears = (cpd / 20) * (yearsSmoked + year); // cumulative at this point
+  const totalCigs = (cpd) * (yearsSmoked + year); // cumulative at this point
 
-  // Health score: already degraded at year 0, worsens each year
-  const baseHealth = Math.max(20, 85 - ((cpd / 20) * yearsSmoked) * 2.5 - Math.max(0, age - 40) * 0.5);
-  const healthScore = Math.max(10, Math.round(baseHealth - year * 1.8));
-
-  // Lung capacity: already reduced, keeps declining
-  const lungBase    = Math.max(40, 95 - ((cpd / 20) * yearsSmoked) * 3.5);
+  const baseHealth   = Math.max(20, 85 - ((cpd / 20) * yearsSmoked) * 2.5 - Math.max(0, age - 40) * 0.5);
+  const healthScore  = Math.max(10, Math.round(baseHealth - year * 1.8));
+  const lungBase     = Math.max(40, 95 - ((cpd / 20) * yearsSmoked) * 3.5);
   const lungCapacity = Math.max(20, Math.round(lungBase - year * 1.6));
 
   const heartRisk =
@@ -92,11 +138,10 @@ function calculateForYear(form: FormData, year: number): YearData {
     year <= 15  ? 'Very high' :
                   'Severe';
 
-  // Cumulative from continued smoking (year 0 = today, no past added here)
   const cigarettesSmoked = Math.round(annualCigs * year);
   const co2Kg            = Math.round((cigarettesSmoked * CO2_PER_CIG_G) / 1000 * 10) / 10;
   const waterUsedL       = Math.round(cigarettesSmoked * WATER_PER_CIG_L);
-  const moneySpent       = Math.round((cigarettesSmoked / 20) * PACK_PRICE);
+  const kgramsLittered    = Math.round(cigarettesSmoked * WEIGHT_PER_CIG_BUTT * PERCENTAGE_LITTERED);
 
   const { milestone, detail: milestoneDetail } = getMilestone(year);
 
@@ -108,7 +153,7 @@ function calculateForYear(form: FormData, year: number): YearData {
     co2Kg,
     cigarettesSmoked,
     waterUsedL,
-    moneySpent,
+    kgramsLittered,
     milestone,
     milestoneDetail,
     accentColor: accentForYear(year),
@@ -118,6 +163,24 @@ function calculateForYear(form: FormData, year: number): YearData {
 function formatRisk(value: number) {
   return `${value.toFixed(1)}% estimated risk`;
 }
+
+// ─── US States list ────────────────────────────────────────────────────────────
+
+const US_STATES = [
+  ['AL', 'Alabama'], ['AK', 'Alaska'], ['AZ', 'Arizona'], ['AR', 'Arkansas'],
+  ['CA', 'California'], ['CO', 'Colorado'], ['CT', 'Connecticut'], ['DE', 'Delaware'],
+  ['FL', 'Florida'], ['GA', 'Georgia'], ['HI', 'Hawaii'], ['ID', 'Idaho'],
+  ['IL', 'Illinois'], ['IN', 'Indiana'], ['IA', 'Iowa'], ['KS', 'Kansas'],
+  ['KY', 'Kentucky'], ['LA', 'Louisiana'], ['ME', 'Maine'], ['MD', 'Maryland'],
+  ['MA', 'Massachusetts'], ['MI', 'Michigan'], ['MN', 'Minnesota'], ['MS', 'Mississippi'],
+  ['MO', 'Missouri'], ['MT', 'Montana'], ['NE', 'Nebraska'], ['NV', 'Nevada'],
+  ['NH', 'New Hampshire'], ['NJ', 'New Jersey'], ['NM', 'New Mexico'], ['NY', 'New York'],
+  ['NC', 'North Carolina'], ['ND', 'North Dakota'], ['OH', 'Ohio'], ['OK', 'Oklahoma'],
+  ['OR', 'Oregon'], ['PA', 'Pennsylvania'], ['RI', 'Rhode Island'], ['SC', 'South Carolina'],
+  ['SD', 'South Dakota'], ['TN', 'Tennessee'], ['TX', 'Texas'], ['UT', 'Utah'],
+  ['VT', 'Vermont'], ['VA', 'Virginia'], ['WA', 'Washington'], ['WV', 'West Virginia'],
+  ['WI', 'Wisconsin'], ['WY', 'Wyoming'],
+] as const;
 
 // ─── Step Indicator ────────────────────────────────────────────────────────────
 
@@ -186,7 +249,6 @@ function UploadStep({
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -288,13 +350,19 @@ function FormStep({
   onChange,
   onBack,
   onNext,
+  isLoading, // NEW
 }: {
   form: FormData;
   onChange: (f: FormData) => void;
   onBack: () => void;
   onNext: () => void;
+  isLoading: boolean; // NEW
 }) {
-  const isValid = form.age && form.yearsSmoked && form.cigarettesPerDay;
+const isValid =
+  form.age &&
+  form.yearsSmoked &&
+  form.cigarettesPerDay &&
+  form.pricePerPack;
 
   const field = (
     label: string,
@@ -342,15 +410,17 @@ function FormStep({
             Used to model your personalised health impact across 30 years.
           </p>
           <div className="space-y-5">
-            {field('Your Current Age',   'age',              '35', undefined,               'yrs')}
-            {field('Years Smoking',      'yearsSmoked',      '10', 'Decimals OK — e.g. 2.5','yrs')}
+            {field('Your Current Age',   'age',              '35', undefined,                'yrs')}
+            {field('Years Smoking',      'yearsSmoked',      '10', 'Decimals OK — e.g. 2.5', 'yrs')}
             {field('Cigarettes Per Day', 'cigarettesPerDay', '10', '1 pack ≈ 20 cigarettes', 'cigs/day')}
+            {field('Price Per Pack',     'pricePerPack',     '10', 'Used to estimate total money spent over time', '$ / pack')}
           </div>
         </div>
 
         <div className="flex gap-3 mt-5">
           <button
             onClick={onBack}
+            disabled={isLoading}
             className="flex-1 py-3.5 rounded-full text-sm font-medium"
             style={{ border: '1px solid #3f3f46', color: '#71717a' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#71717a'; }}
@@ -360,15 +430,31 @@ function FormStep({
           </button>
           <button
             onClick={onNext}
-            disabled={!isValid}
-            className="flex-1 py-3.5 rounded-full text-sm font-semibold"
+            disabled={!isValid || isLoading}
+            className="flex-1 py-3.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
             style={{
-              backgroundColor: isValid ? '#f59e0b' : '#27272a',
-              color: isValid ? '#000' : '#52525b',
-              cursor: isValid ? 'pointer' : 'not-allowed',
+              backgroundColor: isValid && !isLoading ? '#f59e0b' : '#27272a',
+              color: isValid && !isLoading ? '#000' : '#52525b',
+              cursor: isValid && !isLoading ? 'pointer' : 'not-allowed',
             }}
           >
-            See My Timeline →
+            {isLoading ? (
+              <>
+                {/* Spinner */}
+                <svg
+                  className="animate-spin"
+                  style={{ width: 14, height: 14 }}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Fetching CDC data…
+              </>
+            ) : (
+              'See My Timeline →'
+            )}
           </button>
         </div>
       </div>
@@ -376,10 +462,10 @@ function FormStep({
   );
 }
 
-// ─── Timeline Step ─────────────────────────────────────────────────────────────
+// ─── Timeline Step ─────────────────────────────────────────────────
 
 const MAX_YEARS = 30;
-const TICKS = [0, 10, 20, 30]; /* was [0, 5, 10, 15, 20, 25, 30] */
+const TICKS = [0, 10, 20, 30];
 
 function TimelineStep({
   form,
@@ -397,62 +483,69 @@ function TimelineStep({
   onReset: () => void;
 }) {
   const [selectedYear, setSelectedYear] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
 
-  const cpd           = parseFloat(form.cigarettesPerDay) || 10;
-  const yrs           = parseFloat(form.yearsSmoked) || 1;
-  const annualCO2kg   = Math.round((cpd * 365 * 14) / 1000);
-  const totalPastCO2  = Math.round((cpd * 365 * yrs * 14) / 1000);
-  const totalPastCigs = Math.round(cpd * 365 * yrs);
-  const packYears     = Math.round((cpd / 20) * yrs * 10) / 10;
+  useEffect(() => {
+    setIsFlipped(false);
+  }, [selectedYear]);
 
+  const cpd = parseFloat(form.cigarettesPerDay) || 10;
+  const yrs = parseFloat(form.yearsSmoked) || 1;
+  const packYears = Math.round((cpd / 20) * yrs * 10) / 10;
+  const pricePerPack = parseFloat(form.pricePerPack) || 0;
 
-console.log('riskData:', riskData);
-console.log('selectedYear:', selectedYear);
-console.log('timeline:', riskData?.timeline);
+  if (!riskData) {
+    return (
+      <div className="min-h-screen bg-[#09090f] text-white flex items-center justify-center font-sans">
+        Loading timeline...
+      </div>
+    );
+  }
 
-if (!riskData) {
+  const rawEntry =
+    riskData?.timeline?.find(
+      (t: any) => Number(t.yearOffset) === Number(selectedYear)
+    ) || riskData?.timeline?.[0];
+
+  if (!rawEntry) {
+    return (
+      <div className="min-h-screen bg-[#09090f] text-white flex items-center justify-center font-sans">
+        No timeline data available.
+      </div>
+    );
+  }
+
+  const cigarettesSmoked =
+    selectedYear === 0
+      ? Math.round(cpd * 365 * yrs)
+      : Math.round(cpd * 365 * (yrs + selectedYear));
+
+  const packsSmoked = cigarettesSmoked / 20;
+  const moneySpent = Math.round(packsSmoked * pricePerPack);
+  const lifeLostMinutes = cigarettesSmoked * 20;
+
+  const co2Kg = Math.round((cigarettesSmoked * 14) / 1000);
+  const waterUsedL = Math.round(cigarettesSmoked * 3.7);
+  const kgramsLittered =
+    Math.round(cigarettesSmoked * 0.0003 * 0.75 * 100) / 100;
+
+  const entry = {
+    ...rawEntry,
+    accentColor: accentForYear(selectedYear),
+    milestone: getMilestone(selectedYear).milestone,
+    milestoneDetail: getMilestone(selectedYear).detail,
+    cigarettesSmoked,
+    co2Kg,
+    waterUsedL,
+    kgramsLittered,
+  };
+
   return (
-    <div className="min-h-screen bg-[#09090f] text-white flex items-center justify-center">
-      Loading timeline...
-    </div>
-  );
-}
-
-const rawEntry =
-  riskData?.timeline?.find(
-    (t: any) => Number(t.yearOffset) === Number(selectedYear)
-  ) || riskData?.timeline?.[0];
-
-if (!rawEntry) {
-  return (
-    <div className="min-h-screen bg-[#09090f] text-white flex items-center justify-center">
-      No timeline data available.
-    </div>
-  );
-}
-
-const cigarettesSmoked = Math.round(cpd * 365 * selectedYear);
-const co2Kg = Math.round((cigarettesSmoked * 14) / 1000);
-const waterUsedL = Math.round(cigarettesSmoked * 3.7);
-const moneySpent = Math.round((cigarettesSmoked / 20) * 14);
-
-const entry = {
-  ...rawEntry,
-  accentColor: accentForYear(selectedYear),
-  milestone: getMilestone(selectedYear).milestone,
-  milestoneDetail: getMilestone(selectedYear).detail,
-
-  co2Kg,
-  waterUsedL,
-  moneySpent,
-};
-
-  return (
-    <div className="min-h-screen" style={{ backgroundColor: '#09090f' }}>
+    <div className="min-h-screen font-sans" style={{ backgroundColor: '#09090f' }}>
 
       {/* Header */}
       <div style={{ borderBottom: '1px solid #18181b' }}>
-        <div className="max-w-3xl mx-auto px-6 py-8">
+        <div className="max-w-3xl mx-auto px-6 py-6">
           <div className="flex items-center gap-4">
             {photo && (
               <div className="w-12 h-12 rounded-full overflow-hidden shrink-0" style={{ boxShadow: '0 0 0 2px rgba(245,158,11,0.35)' }}>
@@ -463,9 +556,6 @@ const entry = {
               <h1 className="text-xl font-bold text-white leading-tight">
                 Tobac<span style={{ color: '#f59e0b' }}>out</span>
               </h1>
-              <p className="text-zinc-500 text-sm">
-                {yrs}yr · {cpd} cigs/day · age {form.age} · {packYears} pack-years
-              </p>
             </div>
             <button
               onClick={onEdit}
@@ -477,7 +567,6 @@ const entry = {
               Edit
             </button>
           </div>
-
         </div>
       </div>
 
@@ -523,26 +612,19 @@ const entry = {
         {/* ── Main content column (right) ── */}
         <div className="flex-1 min-w-0">
 
-        {/* ── Timeline Bar ── */}
+        {/* Timeline Bar */}
         <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <span className="text-zinc-600 text-xs tracking-wide uppercase">
               Years from now if you continue smoking
             </span>
-            <span
-              className="text-sm font-semibold tabular-nums"
-              style={{ color: entry.accentColor }}
-            >
+            <span className="text-sm font-semibold tabular-nums" style={{ color: entry.accentColor }}>
               {selectedYear === 0 ? 'Today' : `+${selectedYear} years`}
             </span>
           </div>
 
-          {/* The line */}
           <div className="relative" style={{ paddingTop: 12, paddingBottom: 28 }}>
-            {/* Track line */}
             <div className="rounded-full" style={{ height: 2, backgroundColor: '#27272a' }} />
-
-            {/* Tick points — visual only */}
             {TICKS.map((t) => {
               const isSelected = t === selectedYear;
               const isPast     = t < selectedYear;
@@ -563,10 +645,7 @@ const entry = {
                       marginTop: isSelected ? 3 : 6,
                     }}
                   />
-                  <span
-                    className="text-xs mt-2 tabular-nums"
-                    style={{ color: isSelected ? tickColor : '#3f3f46' }}
-                  >
+                  <span className="text-xs mt-2 tabular-nums" style={{ color: isSelected ? tickColor : '#3f3f46' }}>
                     {t === 0 ? 'Now' : `${t}yr`}
                   </span>
                 </div>
@@ -577,7 +656,7 @@ const entry = {
 
         {/* ── Detail Card ── */}
         <div
-          className="rounded-2xl overflow-hidden"
+          className="rounded-2xl overflow-visible"
           style={{
             backgroundColor: '#111117',
             border: `1px solid #1c1c22`,
@@ -633,40 +712,134 @@ const entry = {
     })}
   </div>
 
-  {/* Stats grid */}
-  <div className="grid grid-cols-2 gap-2">
-    <div className="rounded-lg p-3" style={{ backgroundColor: '#18181b' }}>
-      <div className="text-zinc-600 text-xs mb-0.5">
-        {selectedYear === 0 ? 'Annual CO₂' : 'CO₂ Added'}
-      </div>
-      <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
-        {selectedYear === 0
-          ? `${Math.round((cpd * 365 * 14) / 1000)} kg/yr`
-          : `${entry.co2Kg.toLocaleString()} kg`}
-      </div>
-    </div>
-
-    <div className="rounded-lg p-3" style={{ backgroundColor: '#18181b' }}>
-      <div className="text-zinc-600 text-xs mb-0.5">Water Used</div>
-      <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
-        {selectedYear === 0
-          ? `${Math.round((cpd * 365 * 3.7) / 1000)} kL/yr`
-          : entry.waterUsedL > 999
-          ? `${Math.round(entry.waterUsedL / 1000)} kL`
-          : `${entry.waterUsedL} L`}
-      </div>
-    </div>
-
-    <div className="rounded-lg p-3" style={{ backgroundColor: '#18181b' }}>
-      <div className="text-zinc-600 text-xs mb-0.5">Money Spent</div>
-      <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
-        {selectedYear === 0
-          ? `$${Math.round((cpd / 20) * 365 * 14).toLocaleString()}/yr`
-          : `$${entry.moneySpent.toLocaleString()}`}
-      </div>
+<div className="grid grid-cols-2 gap-2">
+  <div className="rounded-lg p-3" style={{ backgroundColor: '#18181b' }}>
+    <div className="text-zinc-600 text-xs mb-0.5">Cigarettes Smoked</div>
+    <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
+      {entry.cigarettesSmoked.toLocaleString()}
     </div>
   </div>
-</div>
+
+  <div className="rounded-lg p-3" style={{ backgroundColor: '#18181b' }}>
+    <div className="text-zinc-600 text-xs mb-0.5">
+      {selectedYear === 0 ? 'Annual CO₂' : 'CO₂ Added'}
+    </div>
+    <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
+      {selectedYear === 0
+        ? `${Math.round((cpd * 365 * 14) / 1000)} kg/yr`
+        : `${entry.co2Kg.toLocaleString()} kg`}
+    </div>
+  </div>
+
+  <div className="rounded-lg p-3" style={{ backgroundColor: '#18181b' }}>
+    <div className="text-zinc-600 text-xs mb-0.5">Water Used</div>
+    <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
+      {selectedYear === 0
+        ? `${Math.round((cpd * 365 * 3.7) / 1000)} kL/yr`
+        : entry.waterUsedL > 999
+        ? `${Math.round(entry.waterUsedL / 1000)} kL`
+        : `${entry.waterUsedL} L`}
+    </div>
+  </div>
+
+  <div className="relative rounded-lg p-3" style={{ backgroundColor: '#18181b', overflow: 'visible' }}>
+    <div className="flex items-start justify-between mb-0.5">
+      <span className="text-zinc-600 text-xs">Cigarette Waste</span>
+
+      <div className="relative group overflow-visible">
+        <span className="text-[11px] underline cursor-help transition-colors duration-200 hover:text-white" style={{ color: '#71717a' }}>
+          Why this matters
+        </span>
+
+        <div className="absolute left-full ml-3 top-1/2 w-64 rounded-xl p-4 z-30 pointer-events-none
+                        opacity-0 translate-y-[-50%] translate-x-[-8px]
+                        transition-all duration-200 ease-out
+                        group-hover:opacity-100 group-hover:translate-x-0"
+          style={{
+            backgroundColor: '#0f0f15',
+            border: '1px solid #27272a',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+          }}
+        >
+          <div className="absolute top-1/2 -left-1.5 w-3 h-3"
+            style={{
+              backgroundColor: '#0f0f15',
+              borderLeft: '1px solid #27272a',
+              borderBottom: '1px solid #27272a',
+              transform: 'translateY(-50%) rotate(45deg)',
+            }}
+          />
+
+          <div className="text-white text-sm font-semibold mb-2">Why this matters</div>
+
+          <div className="space-y-2 text-xs text-zinc-400">
+            <p>#1 most littered object globally</p>
+            <p>1 butt can contaminate <span className="text-white">1,000 L</span> of water</p>
+            <p>Filters = plastic → long-term pollution</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
+      {selectedYear === 0
+        ? `${formatKg(cpd * 365 * 0.0003 * 0.75)}`
+        : formatKg(entry.kgramsLittered)}
+    </div>
+  </div>
+
+  <div className="rounded-lg p-3" style={{ backgroundColor: '#18181b' }}>
+    <div className="text-zinc-600 text-xs mb-0.5">Estimated Life Lost</div>
+    <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
+      {formatLifeLost(lifeLostMinutes)}
+    </div>
+  </div>
+
+  <div className="relative rounded-lg p-3" style={{ backgroundColor: '#18181b', overflow: 'visible' }}>
+    <div className="flex items-start justify-between mb-0.5">
+      <span className="text-zinc-600 text-xs">Money Spent</span>
+
+      <div className="relative group overflow-visible">
+        <span className="text-[11px] underline cursor-help transition-colors duration-200 hover:text-white" style={{ color: '#71717a' }}>
+          What else?
+        </span>
+
+        <div className="absolute left-full ml-3 top-1/2 w-64 rounded-xl p-4 z-30 pointer-events-none
+                        opacity-0 translate-y-[-50%] translate-x-[-8px]
+                        transition-all duration-200 ease-out
+                        group-hover:opacity-100 group-hover:translate-x-0"
+          style={{
+            backgroundColor: '#0f0f15',
+            border: '1px solid #27272a',
+            boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+          }}
+        >
+          <div className="absolute top-1/2 -left-1.5 w-3 h-3"
+            style={{
+              backgroundColor: '#0f0f15',
+              borderLeft: '1px solid #27272a',
+              borderBottom: '1px solid #27272a',
+              transform: 'translateY(-50%) rotate(45deg)',
+            }}
+          />
+
+          <div className="text-white text-sm font-semibold mb-2">
+            What this could have bought
+          </div>
+
+          <div className="space-y-2 text-xs text-zinc-400">
+            <p>{getMoneyComparison(moneySpent)}</p>
+            <p>At this point: <span className="text-white">{formatMoney(moneySpent)}</span></p>
+            <p>Smoking costs build quietly over time.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
+      {formatMoney(moneySpent)}
+    </div>
+  </div>
 </div>
 
         {/* Navigation */}
@@ -684,7 +857,7 @@ const entry = {
           <div className="flex items-center gap-3">
             {selectedYear > 0 && (
               <button
-                onClick={() => setSelectedYear(selectedYear - 10)} // Was -5
+                onClick={() => setSelectedYear(selectedYear - 10)}
                 className="text-sm px-4 py-2 rounded-lg"
                 style={{ border: '1px solid #27272a', color: '#71717a' }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#3f3f46'; }}
@@ -693,17 +866,16 @@ const entry = {
                 ← Back
               </button>
             )}
-
             {selectedYear < MAX_YEARS ? (
               <button
-                onClick={() => setSelectedYear(selectedYear + 10)} // Was + 5
+                onClick={() => setSelectedYear(selectedYear + 10)}
                 className="text-sm px-5 py-2 rounded-lg font-semibold"
                 style={{ backgroundColor: entry.accentColor, color: '#fff' }}
                 onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
                 onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
               >
                 +10 years →
-              </button> // was +5
+              </button>
             ) : (
               <button
                 onClick={() => window.print()}
@@ -717,10 +889,12 @@ const entry = {
             )}
           </div>
         </div>
-        </div> {/* closes flex-1 main content column */}
-      </div> {/* closes flex gap-6 outer row */}
-      </div> {/* closes max-w-5xl content wrapper */}
-    </div>
+      </div> {/* closes p-6 flex-col */}
+    </div> {/* closes detail card */}
+  </div> {/* closes flex-1 main content column */}
+</div> {/* closes flex gap-6 outer row */}
+</div> {/* closes max-w-5xl content wrapper */}
+</div>
   );
 }
 
@@ -729,7 +903,13 @@ const entry = {
 export default function Home() {
   const [step, setStep]   = useState<Step>('upload');
   const [photo, setPhoto] = useState<string | null>(null);
-  const [form, setForm]   = useState<FormData>({ age: '', yearsSmoked: '', cigarettesPerDay: '' });
+const [form, setForm] = useState<FormData>({
+  age: '',
+  yearsSmoked: '',
+  cigarettesPerDay: '',
+  pricePerPack: '',
+});
+
   const [riskData, setRiskData] = useState<any>(null);
   const [generatedPhotos, setGeneratedPhotos] = useState<Record<number, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
@@ -779,7 +959,7 @@ export default function Home() {
   try {
     await new Promise((r) => setTimeout(r, 1200)); // simulate network delay
 
-    const result = analyzeSmokingRisk({
+    const result = await analyzeSmokingRisk({
       age: form.age,
       yearsSmoked: form.yearsSmoked,
       cigarettesPerDay: form.cigarettesPerDay,
@@ -808,6 +988,7 @@ export default function Home() {
     setIsGenerating(false);
   }
 };
+
 
   if (step === 'upload') {
     return <UploadStep photo={photo} onPhoto={setPhoto} onNext={() => setStep('form')} />;
@@ -843,23 +1024,29 @@ export default function Home() {
         onChange={setForm}
         onBack={() => setStep('upload')}
         onNext={handleTimelineSubmit}
+        isLoading={isGenerating}
       />
     );
   }
 
-  return (
-<TimelineStep
-  form={form}
-  photo={photo}
-  generatedPhotos={generatedPhotos}
-  riskData={riskData}
-  onEdit={() => setStep('form')}
-  onReset={() => {
-    setStep('upload');
-    setPhoto(null);
-    setForm({ age: '', yearsSmoked: '', cigarettesPerDay: '' });
-    setGeneratedPhotos({});
-  }}
-/>
-  );
+return (
+  <TimelineStep
+    form={form}
+    photo={photo}
+    generatedPhotos={generatedPhotos}
+    riskData={riskData}
+    onEdit={() => setStep('form')}
+    onReset={() => {
+      setStep('upload');
+      setPhoto(null);
+      setForm({
+        age: '',
+        yearsSmoked: '',
+        cigarettesPerDay: '',
+        pricePerPack: '',
+      });
+      setGeneratedPhotos({});
+    }}
+  />
+);
 }
