@@ -79,10 +79,10 @@ function lerpColor(a: string, b: string, t: number): string {
 
 function accentForYear(year: number): string {
   const stops: [number, string][] = [
-    [0,  '#71717a'], // zinc-500 — neutral
-    [8,  '#f97316'], // orange
-    [18, '#ef4444'], // red
-    [30, '#7f1d1d'], // dark red
+    [0,  '#71717a'],
+    [8,  '#f97316'],
+    [18, '#ef4444'],
+    [30, '#7f1d1d'],
   ];
   for (let i = 0; i < stops.length - 1; i++) {
     const [y0, c0] = stops[i];
@@ -93,14 +93,14 @@ function accentForYear(year: number): string {
 }
 
 function getMilestone(year: number): { milestone: string; detail: string } {
-  if (year === 0)  return { milestone: 'Today',                   detail: 'This is where you are now. Every year on this line is another year of continued damage.' };
+  if (year === 0)  return { milestone: 'Today',                     detail: 'This is where you are now. Every year on this line is another year of continued damage.' };
   if (year <= 2)   return { milestone: 'Early Damage Accumulating', detail: 'Lung cilia remain suppressed. Carbon monoxide binding to red blood cells. Elevated cardiovascular strain.' };
-  if (year <= 5)   return { milestone: 'Cardiovascular Strain',   detail: 'Blood vessel walls thickening. Reduced circulation. Resting heart rate and blood pressure elevated.' };
-  if (year <= 8)   return { milestone: 'Lung Function Declining', detail: 'FEV1 lung capacity measurably reduced. Chronic cough common. Increased respiratory infections.' };
-  if (year <= 12)  return { milestone: 'Compounding Health Debt', detail: 'Pack-year count in dangerous territory. Cancer risk rising. Heart disease risk significantly elevated.' };
-  if (year <= 16)  return { milestone: 'Serious Health Risk',     detail: 'Lung cancer risk multiplied. COPD likelihood high. Peripheral vascular disease a real concern.' };
-  if (year <= 20)  return { milestone: 'Severe Long-term Damage', detail: 'Major organ damage compounding. Life expectancy impact now measured in years, not months.' };
-  if (year <= 25)  return { milestone: 'Critical Stage',          detail: 'Irreversible damage to airways, arteries, and lung tissue. Quality of life significantly impacted.' };
+  if (year <= 5)   return { milestone: 'Cardiovascular Strain',     detail: 'Blood vessel walls thickening. Reduced circulation. Resting heart rate and blood pressure elevated.' };
+  if (year <= 8)   return { milestone: 'Lung Function Declining',   detail: 'FEV1 lung capacity measurably reduced. Chronic cough common. Increased respiratory infections.' };
+  if (year <= 12)  return { milestone: 'Compounding Health Debt',   detail: 'Pack-year count in dangerous territory. Cancer risk rising. Heart disease risk significantly elevated.' };
+  if (year <= 16)  return { milestone: 'Serious Health Risk',       detail: 'Lung cancer risk multiplied. COPD likelihood high. Peripheral vascular disease a real concern.' };
+  if (year <= 20)  return { milestone: 'Severe Long-term Damage',   detail: 'Major organ damage compounding. Life expectancy impact now measured in years, not months.' };
+  if (year <= 25)  return { milestone: 'Critical Stage',            detail: 'Irreversible damage to airways, arteries, and lung tissue. Quality of life significantly impacted.' };
   return { milestone: 'Maximum Risk Zone', detail: `${year} more years of smoking. The cumulative toll is severe. It is still not too late to stop.` };
 }
 
@@ -118,12 +118,9 @@ function calculateForYear(form: FormData, year: number): YearData {
   const annualCigs = cpd * 365;
   const totalCigs = (cpd) * (yearsSmoked + year); // cumulative at this point
 
-  // Health score: already degraded at year 0, worsens each year
-  const baseHealth = Math.max(20, 85 - ((cpd / 20) * yearsSmoked) * 2.5 - Math.max(0, age - 40) * 0.5);
-  const healthScore = Math.max(10, Math.round(baseHealth - year * 1.8));
-
-  // Lung capacity: already reduced, keeps declining
-  const lungBase    = Math.max(40, 95 - ((cpd / 20) * yearsSmoked) * 3.5);
+  const baseHealth   = Math.max(20, 85 - ((cpd / 20) * yearsSmoked) * 2.5 - Math.max(0, age - 40) * 0.5);
+  const healthScore  = Math.max(10, Math.round(baseHealth - year * 1.8));
+  const lungBase     = Math.max(40, 95 - ((cpd / 20) * yearsSmoked) * 3.5);
   const lungCapacity = Math.max(20, Math.round(lungBase - year * 1.6));
 
   const heartRisk =
@@ -133,7 +130,6 @@ function calculateForYear(form: FormData, year: number): YearData {
     year <= 15  ? 'Very high' :
                   'Severe';
 
-  // Cumulative from continued smoking (year 0 = today, no past added here)
   const cigarettesSmoked = Math.round(annualCigs * year);
   const co2Kg            = Math.round((cigarettesSmoked * CO2_PER_CIG_G) / 1000 * 10) / 10;
   const waterUsedL       = Math.round(cigarettesSmoked * WATER_PER_CIG_L);
@@ -159,6 +155,24 @@ function calculateForYear(form: FormData, year: number): YearData {
 function formatRisk(value: number) {
   return `${value.toFixed(1)}% estimated risk`;
 }
+
+// ─── US States list ────────────────────────────────────────────────────────────
+
+const US_STATES = [
+  ['AL', 'Alabama'], ['AK', 'Alaska'], ['AZ', 'Arizona'], ['AR', 'Arkansas'],
+  ['CA', 'California'], ['CO', 'Colorado'], ['CT', 'Connecticut'], ['DE', 'Delaware'],
+  ['FL', 'Florida'], ['GA', 'Georgia'], ['HI', 'Hawaii'], ['ID', 'Idaho'],
+  ['IL', 'Illinois'], ['IN', 'Indiana'], ['IA', 'Iowa'], ['KS', 'Kansas'],
+  ['KY', 'Kentucky'], ['LA', 'Louisiana'], ['ME', 'Maine'], ['MD', 'Maryland'],
+  ['MA', 'Massachusetts'], ['MI', 'Michigan'], ['MN', 'Minnesota'], ['MS', 'Mississippi'],
+  ['MO', 'Missouri'], ['MT', 'Montana'], ['NE', 'Nebraska'], ['NV', 'Nevada'],
+  ['NH', 'New Hampshire'], ['NJ', 'New Jersey'], ['NM', 'New Mexico'], ['NY', 'New York'],
+  ['NC', 'North Carolina'], ['ND', 'North Dakota'], ['OH', 'Ohio'], ['OK', 'Oklahoma'],
+  ['OR', 'Oregon'], ['PA', 'Pennsylvania'], ['RI', 'Rhode Island'], ['SC', 'South Carolina'],
+  ['SD', 'South Dakota'], ['TN', 'Tennessee'], ['TX', 'Texas'], ['UT', 'Utah'],
+  ['VT', 'Vermont'], ['VA', 'Virginia'], ['WA', 'Washington'], ['WV', 'West Virginia'],
+  ['WI', 'Wisconsin'], ['WY', 'Wyoming'],
+] as const;
 
 // ─── Step Indicator ────────────────────────────────────────────────────────────
 
@@ -227,7 +241,6 @@ function UploadStep({
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -329,11 +342,13 @@ function FormStep({
   onChange,
   onBack,
   onNext,
+  isLoading, // NEW
 }: {
   form: FormData;
   onChange: (f: FormData) => void;
   onBack: () => void;
   onNext: () => void;
+  isLoading: boolean; // NEW
 }) {
   const isValid = form.age && form.yearsSmoked && form.cigarettesPerDay && form.pricePerPack;
 
@@ -393,6 +408,7 @@ function FormStep({
         <div className="flex gap-3 mt-5">
           <button
             onClick={onBack}
+            disabled={isLoading}
             className="flex-1 py-3.5 rounded-full text-sm font-medium"
             style={{ border: '1px solid #3f3f46', color: '#71717a' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#71717a'; }}
@@ -402,15 +418,31 @@ function FormStep({
           </button>
           <button
             onClick={onNext}
-            disabled={!isValid}
-            className="flex-1 py-3.5 rounded-full text-sm font-semibold"
+            disabled={!isValid || isLoading}
+            className="flex-1 py-3.5 rounded-full text-sm font-semibold flex items-center justify-center gap-2"
             style={{
-              backgroundColor: isValid ? '#f59e0b' : '#27272a',
-              color: isValid ? '#000' : '#52525b',
-              cursor: isValid ? 'pointer' : 'not-allowed',
+              backgroundColor: isValid && !isLoading ? '#f59e0b' : '#27272a',
+              color: isValid && !isLoading ? '#000' : '#52525b',
+              cursor: isValid && !isLoading ? 'pointer' : 'not-allowed',
             }}
           >
-            See My Timeline →
+            {isLoading ? (
+              <>
+                {/* Spinner */}
+                <svg
+                  className="animate-spin"
+                  style={{ width: 14, height: 14 }}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Fetching CDC data…
+              </>
+            ) : (
+              'See My Timeline →'
+            )}
           </button>
         </div>
       </div>
@@ -418,10 +450,10 @@ function FormStep({
   );
 }
 
-// ─── Timeline Step ─────────────────────────────────────────────────────────────
+// ─── Timeline Step (unchanged) ─────────────────────────────────────────────────
 
 const MAX_YEARS = 30;
-const TICKS = [0, 10, 20, 30]; /* was [0, 5, 10, 15, 20, 25, 30] */
+const TICKS = [0, 10, 20, 30];
 
 function TimelineStep({
   form,
@@ -444,23 +476,27 @@ function TimelineStep({
   const yrs           = parseFloat(form.yearsSmoked) || 1;
   const packYears     = Math.round((cpd / 20) * yrs * 10) / 10;
 
+  if (!riskData) {
+    return (
+      <div className="min-h-screen bg-[#09090f] text-white flex items-center justify-center">
+        Loading timeline...
+      </div>
+    );
+  }
 
-console.log('riskData:', riskData);
-console.log('selectedYear:', selectedYear);
-console.log('timeline:', riskData?.timeline);
+  const rawEntry =
+    riskData?.timeline?.find(
+      (t: any) => Number(t.yearOffset) === Number(selectedYear)
+    ) || riskData?.timeline?.[0];
 
-if (!riskData) {
-  return (
-    <div className="min-h-screen bg-[#09090f] text-white flex items-center justify-center">
-      Loading timeline...
-    </div>
-  );
-}
+  if (!rawEntry) {
+    return (
+      <div className="min-h-screen bg-[#09090f] text-white flex items-center justify-center">
+        No timeline data available.
+      </div>
+    );
+  }
 
-const rawEntry =
-  riskData?.timeline?.find(
-    (t: any) => Number(t.yearOffset) === Number(selectedYear)
-  ) || riskData?.timeline?.[0];
 
 if (!rawEntry) {
   return (
@@ -569,26 +605,19 @@ const entry = {
         {/* ── Main content column (right) ── */}
         <div className="flex-1 min-w-0">
 
-        {/* ── Timeline Bar ── */}
+        {/* Timeline Bar */}
         <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <span className="text-zinc-600 text-xs tracking-wide uppercase">
               Years from now if you continue smoking
             </span>
-            <span
-              className="text-sm font-semibold tabular-nums"
-              style={{ color: entry.accentColor }}
-            >
+            <span className="text-sm font-semibold tabular-nums" style={{ color: entry.accentColor }}>
               {selectedYear === 0 ? 'Today' : `+${selectedYear} years`}
             </span>
           </div>
 
-          {/* The line */}
           <div className="relative" style={{ paddingTop: 12, paddingBottom: 28 }}>
-            {/* Track line */}
             <div className="rounded-full" style={{ height: 2, backgroundColor: '#27272a' }} />
-
-            {/* Tick points — visual only */}
             {TICKS.map((t) => {
               const isSelected = t === selectedYear;
               const isPast     = t < selectedYear;
@@ -609,10 +638,7 @@ const entry = {
                       marginTop: isSelected ? 3 : 6,
                     }}
                   />
-                  <span
-                    className="text-xs mt-2 tabular-nums"
-                    style={{ color: isSelected ? tickColor : '#3f3f46' }}
-                  >
+                  <span className="text-xs mt-2 tabular-nums" style={{ color: isSelected ? tickColor : '#3f3f46' }}>
                     {t === 0 ? 'Now' : `${t}yr`}
                   </span>
                 </div>
@@ -837,7 +863,7 @@ const entry = {
           <div className="flex items-center gap-3">
             {selectedYear > 0 && (
               <button
-                onClick={() => setSelectedYear(selectedYear - 10)} // Was -5
+                onClick={() => setSelectedYear(selectedYear - 10)}
                 className="text-sm px-4 py-2 rounded-lg"
                 style={{ border: '1px solid #27272a', color: '#71717a' }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#3f3f46'; }}
@@ -846,17 +872,16 @@ const entry = {
                 ← Back
               </button>
             )}
-
             {selectedYear < MAX_YEARS ? (
               <button
-                onClick={() => setSelectedYear(selectedYear + 10)} // Was + 5
+                onClick={() => setSelectedYear(selectedYear + 10)}
                 className="text-sm px-5 py-2 rounded-lg font-semibold"
                 style={{ backgroundColor: entry.accentColor, color: '#fff' }}
                 onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
                 onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
               >
                 +10 years →
-              </button> // was +5
+              </button>
             ) : (
               <button
                 onClick={() => window.print()}
@@ -883,6 +908,7 @@ export default function Home() {
   const [step, setStep]   = useState<Step>('upload');
   const [photo, setPhoto] = useState<string | null>(null);
   const [form, setForm]   = useState<FormData>({ age: '', yearsSmoked: '', cigarettesPerDay: '' , pricePerPack: ''});
+
   const [riskData, setRiskData] = useState<any>(null);
   const [generatedPhotos, setGeneratedPhotos] = useState<Record<number, string>>({});
   const [isGenerating, setIsGenerating] = useState(false);
@@ -932,7 +958,7 @@ export default function Home() {
   try {
     await new Promise((r) => setTimeout(r, 1200)); // simulate network delay
 
-    const result = analyzeSmokingRisk({
+    const result = await analyzeSmokingRisk({
       age: form.age,
       yearsSmoked: form.yearsSmoked,
       cigarettesPerDay: form.cigarettesPerDay,
@@ -961,6 +987,7 @@ export default function Home() {
     setIsGenerating(false);
   }
 };
+
 
   if (step === 'upload') {
     return <UploadStep photo={photo} onPhoto={setPhoto} onNext={() => setStep('form')} />;
@@ -996,6 +1023,7 @@ export default function Home() {
         onChange={setForm}
         onBack={() => setStep('upload')}
         onNext={handleTimelineSubmit}
+        isLoading={isGenerating}
       />
     );
   }
@@ -1015,5 +1043,6 @@ export default function Home() {
     setGeneratedPhotos({});
   }}
 />
+
   );
 }
