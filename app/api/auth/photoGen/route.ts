@@ -31,7 +31,19 @@ export async function POST(req: NextRequest) {
 
         let intensity = Math.exp(k*packYears); // intensity function on a scale of 10
 
-        const prompt = "Generate a photo of a cat. Make it cartoon and simple.";
+        if (intensity  >= 7)
+            intensity = 7;
+
+        const prompt = `If 10/10 is the worst smoking facial symptoms can get, and 0/10 is no symptoms at all, transform this photo to show ${intensity}/10 symptoms. 
+        The symptoms are: wrinkles, SUNKEN CHEEKS, SAGGING SKIN, SMOKER'S WRINKLES AROUND THE LIPS, skin AND LIPS discoloration, yellow teeth, and cracking, darkened lips.
+        MAKE SURE TO show the mouth open to show the yellow teeth. Also age the person ${futureYears} in the future.
+        At higher intensities the person should also look naturally older — 
+        greyer hair, age spots, looser skin from aging, and overall facial 
+        aging consistent with someone who is realistically older. The aging 
+        and smoking symptoms should blend seamlessly together so the result 
+        looks like a real photograph of this person taken years or decades 
+        in the future. Never apply smoking damage without also applying 
+        the corresponding natural age progression.`;
 
         const result = await model.generateContent([
             prompt,
