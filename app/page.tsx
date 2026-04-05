@@ -8,6 +8,7 @@ interface FormData {
   age: string;
   yearsSmoked: string;
   cigarettesPerDay: string;
+  pricePerPack: string; 
 }
 
 interface YearData {
@@ -18,10 +19,48 @@ interface YearData {
   co2Kg: number;
   cigarettesSmoked: number;
   waterUsedL: number;
-  moneySpent: number;
+  kgramsLittered: number;
   milestone: string;
   milestoneDetail: string;
   accentColor: string;
+}
+
+function getMoneyComparison(amount: number) {
+  if (amount >= 300000) return 'This money could have gone toward a house or major investment';
+  if (amount >= 100000) return 'This money could have covered a large down payment or long-term savings';
+  if (amount >= 50000) return 'This money could have funded years of rent or multiple international trips';
+  if (amount >= 25000) return 'This money could have bought a reliable car or paid for education';
+  if (amount >= 10000) return 'This money could have funded travel, a laptop, or emergency savings';
+  if (amount >= 5000) return 'This money could have bought a high-end laptop, furniture, or a vacation';
+  if (amount >= 2000) return 'This money could have covered a phone, bills, or several months of groceries';
+  if (amount >= 500) return 'This money could have paid for essentials, clothes, or small trips';
+  return 'Even small daily costs quietly add up over time';
+}
+
+function formatKg(value:number) {
+  if (value < 1){ 
+    return `${Math.round(value * 1000)} g`;
+  }
+  return `${value.toFixed(2)} kg`;
+}
+
+function formatMoney(value: number) {
+  return `$${Math.round(value).toLocaleString()}`;
+}
+
+function formatLifeLost(minutes: number) {
+  const days = minutes / (60 * 24);
+  const years = days / 365;
+
+  if (years >= 1) {
+    return `${years.toFixed(1)} yrs`;
+  }
+  if (days >= 1) {
+    return `${Math.round(days)} days`;
+  }
+
+  const hours = minutes / 60;
+  return `${Math.round(hours)} hrs`;
 }
 
 // Neutral grey → deep red as year increases
@@ -70,10 +109,12 @@ function calculateForYear(form: FormData, year: number): YearData {
 
   const CO2_PER_CIG_G   = 14;   // g CO2e per cigarette (full lifecycle)
   const WATER_PER_CIG_L = 3.7;  // litres per cigarette
-  const PACK_PRICE      = 14;   // $ per pack
+  const WEIGHT_PER_CIG_BUTT = 0.0003; //kg per cigarette butt
+  const PERCENTAGE_LITTERED = 0.75; // 75% of butts are littered
+
 
   const annualCigs = cpd * 365;
-  const totalPackYears = (cpd / 20) * (yearsSmoked + year); // cumulative at this point
+  const totalCigs = (cpd) * (yearsSmoked + year); // cumulative at this point
 
   // Health score: already degraded at year 0, worsens each year
   const baseHealth = Math.max(20, 85 - ((cpd / 20) * yearsSmoked) * 2.5 - Math.max(0, age - 40) * 0.5);
@@ -94,7 +135,7 @@ function calculateForYear(form: FormData, year: number): YearData {
   const cigarettesSmoked = Math.round(annualCigs * year);
   const co2Kg            = Math.round((cigarettesSmoked * CO2_PER_CIG_G) / 1000 * 10) / 10;
   const waterUsedL       = Math.round(cigarettesSmoked * WATER_PER_CIG_L);
-  const moneySpent       = Math.round((cigarettesSmoked / 20) * PACK_PRICE);
+  const kgramsLittered    = Math.round(cigarettesSmoked * WEIGHT_PER_CIG_BUTT * PERCENTAGE_LITTERED);
 
   const { milestone, detail: milestoneDetail } = getMilestone(year);
 
@@ -106,7 +147,7 @@ function calculateForYear(form: FormData, year: number): YearData {
     co2Kg,
     cigarettesSmoked,
     waterUsedL,
-    moneySpent,
+    kgramsLittered,
     milestone,
     milestoneDetail,
     accentColor: accentForYear(year),
@@ -289,7 +330,7 @@ function FormStep({
   onBack: () => void;
   onNext: () => void;
 }) {
-  const isValid = form.age && form.yearsSmoked && form.cigarettesPerDay;
+  const isValid = form.age && form.yearsSmoked && form.cigarettesPerDay && form.pricePerPack;
 
   const field = (
     label: string,
@@ -340,6 +381,7 @@ function FormStep({
             {field('Your Current Age',   'age',              '35', undefined,               'yrs')}
             {field('Years Smoking',      'yearsSmoked',      '10', 'Decimals OK — e.g. 2.5','yrs')}
             {field('Cigarettes Per Day', 'cigarettesPerDay', '10', '1 pack ≈ 20 cigarettes', 'cigs/day')}
+            {field('Price Per Pack',        'pricePerPack',     '10', 'Optional: used to calculate money spent', '$/pack')}
           </div>
         </div>
 
@@ -396,9 +438,6 @@ function TimelineStep({
 
   const cpd           = parseFloat(form.cigarettesPerDay) || 10;
   const yrs           = parseFloat(form.yearsSmoked) || 1;
-  const annualCO2kg   = Math.round((cpd * 365 * 14) / 1000);
-  const totalPastCO2  = Math.round((cpd * 365 * yrs * 14) / 1000);
-  const totalPastCigs = Math.round(cpd * 365 * yrs);
   const packYears     = Math.round((cpd / 20) * yrs * 10) / 10;
 
 
@@ -427,10 +466,20 @@ if (!rawEntry) {
   );
 }
 
-const cigarettesSmoked = Math.round(cpd * 365 * selectedYear);
+const cigarettesSmoked = 
+      selectedYear === 0
+    ? Math.round(cpd * 365 * yrs)
+    : Math.round(cpd * 365 * (yrs + selectedYear));
+const pricePerPack = parseFloat(form.pricePerPack) || 0;
+const packsSmoked = cigarettesSmoked / 20;
+const moneySpent = Math.round(packsSmoked * pricePerPack);
+const lifeLostMinutes = cigarettesSmoked * 20;
+const lifeLostDays = lifeLostMinutes / (60 * 24);
+const lifeLostYears = lifeLostDays / 365;
+
 const co2Kg = Math.round((cigarettesSmoked * 14) / 1000);
 const waterUsedL = Math.round(cigarettesSmoked * 3.7);
-const moneySpent = Math.round((cigarettesSmoked / 20) * 14);
+const kgramsLittered = Math.round(cigarettesSmoked * 0.0003 * 0.75 * 100) / 100;
 
 const entry = {
   ...rawEntry,
@@ -438,9 +487,10 @@ const entry = {
   milestone: getMilestone(selectedYear).milestone,
   milestoneDetail: getMilestone(selectedYear).detail,
 
+  cigarettesSmoked,
   co2Kg,
   waterUsedL,
-  moneySpent,
+  kgramsLittered,
 };
 
   return (
@@ -448,7 +498,7 @@ const entry = {
 
       {/* Header */}
       <div style={{ borderBottom: '1px solid #18181b' }}>
-        <div className="max-w-3xl mx-auto px-6 py-8">
+        <div className="max-w-3xl mx-auto px-6 py-6">
           <div className="flex items-center gap-4">
             {photo && (
               <div className="w-12 h-12 rounded-full overflow-hidden shrink-0" style={{ boxShadow: '0 0 0 2px rgba(245,158,11,0.35)' }}>
@@ -459,9 +509,6 @@ const entry = {
               <h1 className="text-xl font-bold text-white leading-tight">
                 Tobac<span style={{ color: '#f59e0b' }}>out</span>
               </h1>
-              <p className="text-zinc-500 text-sm">
-                {yrs}yr · {cpd} cigs/day · age {form.age} · {packYears} pack-years
-              </p>
             </div>
             <button
               onClick={onEdit}
@@ -472,21 +519,6 @@ const entry = {
             >
               Edit
             </button>
-          </div>
-
-          {/* Past damage summary — small, subdued */}
-          <div className="flex gap-6 mt-5 pt-5" style={{ borderTop: '1px solid #18181b' }}>
-            {[
-              { label: 'CO₂ emitted so far',  value: `${totalPastCO2.toLocaleString()} kg` },
-              { label: 'Cigarettes smoked',    value: totalPastCigs.toLocaleString() },
-              { label: 'Spent on cigarettes',  value: `$${Math.round((totalPastCigs / 20) * 14).toLocaleString()}` },
-              { label: 'Annual CO₂',           value: `${annualCO2kg} kg/yr` },
-            ].map((s) => (
-              <div key={s.label}>
-                <div className="text-zinc-600 text-xs">{s.label}</div>
-                <div className="text-zinc-300 text-sm font-semibold mt-0.5">{s.value}</div>
-              </div>
-            ))}
           </div>
         </div>
       </div>
@@ -547,7 +579,7 @@ const entry = {
 
         {/* ── Detail Card ── */}
         <div
-          className="rounded-2xl overflow-hidden"
+          className="rounded-2xl overflow-visible"
           style={{
             backgroundColor: '#111117',
             border: `1px solid #1c1c22`,
@@ -744,11 +776,11 @@ const entry = {
   </div>
 
   {/* Stats grid */}
-  <div className="grid grid-cols-2 gap-2">
+  <div className="grid grid-cols-3 gap-2">
     <div className="rounded-lg p-3" style={{ backgroundColor: '#18181b' }}>
-      <div className="text-zinc-600 text-xs mb-0.5">Risk summary</div>
-      <div className="text-white text-sm font-medium">
-        {entry.heartDiseasePct.toFixed(1)}% heart · {entry.strokePct.toFixed(1)}% stroke
+      <div className="text-zinc-600 text-xs mb-0.5">Cigarettes Smoked</div>
+      <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
+        {entry.cigarettesSmoked.toLocaleString()}
       </div>
     </div>
 
@@ -774,14 +806,123 @@ const entry = {
       </div>
     </div>
 
-    <div className="rounded-lg p-3" style={{ backgroundColor: '#18181b' }}>
-      <div className="text-zinc-600 text-xs mb-0.5">Money Spent</div>
-      <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
-        {selectedYear === 0
-          ? `$${Math.round((cpd / 20) * 365 * 14).toLocaleString()}/yr`
-          : `$${entry.moneySpent.toLocaleString()}`}
+ <div
+  className="relative rounded-lg p-3"
+  style={{ backgroundColor: '#18181b', overflow: 'visible' }}
+>
+  <div className="flex items-start justify-between mb-0.5">
+    <span className="text-zinc-600 text-xs">Cigarette Waste</span>
+
+    <div className="relative group overflow-visible">
+      <span
+        className="text-[11px] underline cursor-help transition-colors duration-200 hover:text-white"
+        style={{ color: '#71717a' }}
+      >
+        Why this matters
+      </span>
+
+      <div
+        className="absolute left-full ml-3 top-1/2 w-64 rounded-xl p-4 z-30 pointer-events-none
+                   opacity-0 translate-y-[-50%] translate-x-[-8px]
+                   transition-all duration-200 ease-out
+                   group-hover:opacity-100 group-hover:translate-x-0"
+        style={{
+          backgroundColor: '#0f0f15',
+          border: '1px solid #27272a',
+          boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+        }}
+      >
+        <div
+          className="absolute top-1/2 -left-1.5 w-3 h-3"
+          style={{
+            backgroundColor: '#0f0f15',
+            borderLeft: '1px solid #27272a',
+            borderBottom: '1px solid #27272a',
+            transform: 'translateY(-50%) rotate(45deg)',
+          }}
+        />
+
+        <div className="text-white text-sm font-semibold mb-2">
+          Why this matters
+        </div>
+
+        <div className="space-y-2 text-xs text-zinc-400">
+          <p>#1 most littered object globally</p>
+          <p>
+            1 butt can contaminate <span className="text-white">1,000 L</span> of water and degrade soil quality
+          </p>
+          <p>The butts are not biodegrade and instead leak toxic chemicals</p>
+        </div>
       </div>
     </div>
+  </div>
+
+  <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
+    {selectedYear === 0
+      ? `${formatKg(cpd * 365 * 0.0003 * 0.75)}`
+      : formatKg(entry.kgramsLittered)}
+  </div>
+</div>
+
+      <div className="rounded-lg p-3" style={{ backgroundColor: '#18181b' }}>
+        <div className="text-zinc-600 text-xs mb-0.5">Estimated Life Lost</div>
+        <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
+      {formatLifeLost(lifeLostMinutes)}
+    </div>
+  </div>
+
+  <div
+  className="relative rounded-lg p-3"
+  style={{ backgroundColor: '#18181b', overflow: 'visible' }}
+>
+  <div className="flex items-start justify-between mb-0.5">
+    <span className="text-zinc-600 text-xs">Money Spent</span>
+
+    <div className="relative group overflow-visible">
+      <span
+        className="text-[11px] underline cursor-help transition-colors duration-200 hover:text-white"
+        style={{ color: '#71717a' }}
+      >
+        Comparison
+      </span>
+
+      <div
+        className="absolute left-full ml-3 top-1/2 w-64 rounded-xl p-4 z-30 pointer-events-none
+                   opacity-0 translate-y-[-50%] translate-x-[-8px]
+                   transition-all duration-200 ease-out
+                   group-hover:opacity-100 group-hover:translate-x-0"
+        style={{
+          backgroundColor: '#0f0f15',
+          border: '1px solid #27272a',
+          boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+        }}
+      >
+        <div
+          className="absolute top-1/2 -left-1.5 w-3 h-3"
+          style={{
+            backgroundColor: '#0f0f15',
+            borderLeft: '1px solid #27272a',
+            borderBottom: '1px solid #27272a',
+            transform: 'translateY(-50%) rotate(45deg)',
+          }}
+        />
+
+        <div className="text-white text-sm font-semibold mb-2">
+          What this could have bought
+        </div>
+
+        <div className="space-y-2 text-xs text-zinc-400">
+          <p>{getMoneyComparison(moneySpent)}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div className="font-semibold text-sm" style={{ color: entry.accentColor }}>
+    {formatMoney(moneySpent)}
+  </div>
+</div>
+
   </div>
 </div>
 </div>
@@ -845,7 +986,7 @@ const entry = {
 export default function Home() {
   const [step, setStep]   = useState<Step>('upload');
   const [photo, setPhoto] = useState<string | null>(null);
-  const [form, setForm]   = useState<FormData>({ age: '', yearsSmoked: '', cigarettesPerDay: '' });
+  const [form, setForm]   = useState<FormData>({ age: '', yearsSmoked: '', cigarettesPerDay: '' , pricePerPack: ''});
   const [riskData, setRiskData] = useState<any>(null);
 
   const handleTimelineSubmit = async () => {
@@ -896,7 +1037,7 @@ export default function Home() {
   onReset={() => {
     setStep('upload');
     setPhoto(null);
-    setForm({ age: '', yearsSmoked: '', cigarettesPerDay: '' });
+    setForm({ age: '', yearsSmoked: '', cigarettesPerDay: '', pricePerPack: '' });
   }}
 />
   );
